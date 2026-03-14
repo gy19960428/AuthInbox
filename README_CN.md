@@ -199,7 +199,11 @@ flowchart LR
 
 ## 截图 📸
 
-![image](https://github.com/user-attachments/assets/41db550c-8340-4315-ba87-85330abc5dfb)
+![邮件列表与验证码提取](img/Group%201.png)
+
+![邮件详情与验证码](img/Group%202.png)
+
+![HTML 邮件渲染预览](img/Group%203.png)
 
 ---
 

@@ -199,7 +199,11 @@ Visit your Worker URL, log in with the credentials you set, and start receiving 
 
 ## Screenshots 📸
 
-![image](https://github.com/user-attachments/assets/ec14d226-ae82-4689-b44d-22850002c34c)
+![Mail list and extracted code](img/Group%201.png)
+
+![Mail detail with verification code](img/Group%202.png)
+
+![Rendered HTML email preview](img/Group%203.png)
 
 ---
 
