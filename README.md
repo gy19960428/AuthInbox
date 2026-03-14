@@ -8,7 +8,43 @@ Don't want ads and spam in your main inbox? Need a bunch of alternative addresse
 
 [![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/TooonyChen/AuthInbox)
 
-![Framework](https://github.com/user-attachments/assets/fb5a0204-85fd-4663-9f9d-cd90a4a1fa96)
+```mermaid
+flowchart TD
+    A([📧 Incoming Email]) --> B[Cloudflare Email Worker]
+    RPC([Other CF Workers]) -->|rpcEmail RPC| B
+
+    B --> C[(raw_mails\nstore all emails)]
+    C --> D{isPromotionalEmail?\nDetect bulk/marketing mail}
+    D -->|"Yes: List-Unsubscribe / Precedence: bulk / X-Campaign"| E[🚫 Skip — no AI call]
+    D -->|No| F[Build AI Prompt\nextract code / title / topic]
+
+    F --> G[Primary AI Provider\nup to 3 retries]
+    G -->|Parsed OK| I{codeExist = 1?}
+    G -->|All 3 failed| H[Fallback AI Provider\n1 attempt]
+    H -->|Parsed OK| I
+    H -->|Failed| Z[❌ Log error, exit]
+
+    I -->|No| J[📝 No code found, skip]
+    I -->|Yes| K[(code_mails\nsave title / code / topic)]
+
+    K --> L{UseBark?}
+    L -->|false| M([✅ Done])
+    L -->|true| N[🍎 Bark Push Notification\nfan-out to all iOS tokens]
+    N --> M
+
+    subgraph HTTP ["🌐 HTTP Admin Interface"]
+        direction TB
+        P[Basic Auth Gate\nfirst in fetch] --> Q{Route}
+        Q -->|GET /api/mails| R[Paginated list\ncode_mails JOIN raw_mails]
+        Q -->|GET /api/mails/:id| S[Mail detail\nMIME body parsed]
+        Q -->|Other| T[React SPA\nor Fallback HTML]
+    end
+
+    subgraph DB ["🗄️ Cloudflare D1"]
+        C
+        K
+    end
+```
 
 ---
 

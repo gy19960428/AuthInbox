@@ -8,7 +8,43 @@
 
 [![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/TooonyChen/AuthInbox)
 
-![框架](https://github.com/user-attachments/assets/f2ea1ef1-b500-4e47-88ba-a00d19f99595)
+```mermaid
+flowchart TD
+    A([📧 收到邮件]) --> B[Cloudflare Email Worker]
+    RPC([其他 CF Worker]) -->|rpcEmail RPC 调用| B
+
+    B --> C[(raw_mails\n存储全部原始邮件)]
+    C --> D{isPromotionalEmail?\n检测广告/营销邮件}
+    D -->|"是：List-Unsubscribe / Precedence: bulk / X-Campaign"| E[🚫 跳过，不调用 AI]
+    D -->|否| F[构建 AI Prompt\n提取 code / title / topic]
+
+    F --> G[主 AI 提供商\n最多重试 3 次]
+    G -->|解析成功| I{codeExist = 1?}
+    G -->|3 次均失败| H[备用 AI 提供商\n尝试 1 次]
+    H -->|解析成功| I
+    H -->|失败| Z[❌ 记录错误，结束]
+
+    I -->|No| J[📝 无验证码，忽略]
+    I -->|Yes| K[(code_mails\n保存 title / code / topic)]
+
+    K --> L{UseBark?}
+    L -->|false| M([✅ 完成])
+    L -->|true| N[🍎 Bark 推送通知\n分发给所有 iOS token]
+    N --> M
+
+    subgraph HTTP ["🌐 HTTP 管理界面"]
+        direction TB
+        P[Basic Auth 验证\n优先于所有路由] --> Q{路由}
+        Q -->|GET /api/mails| R[分页列表\ncode_mails JOIN raw_mails]
+        Q -->|GET /api/mails/:id| S[邮件详情\n解析 MIME 正文]
+        Q -->|其他| T[React SPA\n或 Fallback HTML]
+    end
+
+    subgraph DB ["🗄️ Cloudflare D1 数据库"]
+        C
+        K
+    end
+```
 
 ---
 
