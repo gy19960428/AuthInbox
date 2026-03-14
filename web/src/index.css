@@ -1,0 +1,46 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+	--background: 0 0% 4%;
+	--foreground: 0 0% 92%;
+	--card: 0 0% 8%;
+	--card-foreground: 0 0% 92%;
+	--popover: 0 0% 8%;
+	--popover-foreground: 0 0% 92%;
+	--primary: 164 67% 63%;
+	--primary-foreground: 0 0% 5%;
+	--secondary: 0 0% 13%;
+	--secondary-foreground: 0 0% 92%;
+	--muted: 0 0% 13%;
+	--muted-foreground: 0 0% 68%;
+	--accent: 0 0% 13%;
+	--accent-foreground: 0 0% 92%;
+	--destructive: 0 73% 53%;
+	--destructive-foreground: 0 0% 98%;
+	--border: 0 0% 20%;
+	--input: 0 0% 20%;
+	--ring: 164 67% 63%;
+	--radius: 0.8rem;
+	color-scheme: dark;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+	height: 100%;
+}
+
+body {
+	margin: 0;
+	font-family: 'Manrope', sans-serif;
+	background: hsl(var(--background));
+	color: hsl(var(--foreground));
+}

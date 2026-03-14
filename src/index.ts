@@ -14,6 +14,7 @@ interface Env {
   // If you set another name in wrangler.toml as the value for 'binding',
   // replace "DB" with the variable name you defined.
   DB: D1Database;
+  ASSETS?: Fetcher;
   FrontEndAdminID: string;
   FrontEndAdminPassword: string;
   barkTokens: string;
@@ -100,6 +101,116 @@ function normaliseBaseUrl(baseUrl: string): string {
   return baseUrl.replace(/\/+$/, "");
 }
 
+function jsonResponse(data: unknown, status = 200): Response {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: {
+      "Content-Type": "application/json; charset=utf-8",
+    },
+  });
+}
+
+function decodeQuotedPrintable(text: string): string {
+  return text
+    .replace(/=\r?\n/g, "")
+    .replace(/=([A-Fa-f0-9]{2})/g, (_match, hex) => String.fromCharCode(Number.parseInt(hex, 16)));
+}
+
+function stripHtmlTags(text: string): string {
+  return text
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isPromotionalEmail(headers: Headers, rawEmail: string): boolean {
+  // Bulk/marketing emails are legally required to carry these headers (CAN-SPAM, RFC 2369)
+  if (headers.get("List-Unsubscribe") || headers.get("List-ID") || headers.get("List-Post")) {
+    return true;
+  }
+
+  const precedence = headers.get("Precedence")?.toLowerCase() ?? "";
+  if (precedence === "bulk" || precedence === "list") {
+    return true;
+  }
+
+  // Check raw headers section for campaign/bulk markers from known ESPs
+  const rawHeaders = rawEmail.slice(0, rawEmail.search(/\r?\n\r?\n/) + 1 || 4000);
+  if (
+    /^X-Campaign(-ID)?:/im.test(rawHeaders) ||
+    /^X-Mailer:\s*(mailchimp|sendgrid|klaviyo|brevo|sendinblue|constant.contact|hubspot)/im.test(rawHeaders) ||
+    /^X-SFMC-Stack:/im.test(rawHeaders) ||
+    /^X-Marketo-/im.test(rawHeaders)
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+function extractMailBodies(rawEmail: string): { textBody: string | null; htmlBody: string | null } {
+  // Try MIME multipart parsing first
+  const boundaryMatch = rawEmail.match(/boundary="?([^"\r\n;]+)"?/i);
+  if (boundaryMatch) {
+    const boundary = boundaryMatch[1].trim();
+    const escapedBoundary = boundary.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const parts = rawEmail.split(new RegExp(`--${escapedBoundary}(?:--)?\\r?\\n?`));
+
+    let textBody: string | null = null;
+    let htmlBody: string | null = null;
+
+    for (const part of parts) {
+      const trimmed = part.trim();
+      if (!trimmed || trimmed === "--") continue;
+
+      const headerBodyMatch = trimmed.match(/^([\s\S]*?)\r?\n\r?\n([\s\S]*)$/);
+      if (!headerBodyMatch) continue;
+
+      const headers = headerBodyMatch[1];
+      const body = headerBodyMatch[2].trim();
+      if (!body) continue;
+
+      const contentType = headers.match(/Content-Type:\s*([^\r\n;]+)/i)?.[1]?.trim().toLowerCase() ?? "";
+      const encoding = headers.match(/Content-Transfer-Encoding:\s*([^\r\n]+)/i)?.[1]?.trim().toLowerCase() ?? "";
+
+      let decoded = body;
+      if (encoding === "base64") {
+        try {
+          decoded = atob(body.replace(/\s/g, ""));
+        } catch {
+          decoded = body;
+        }
+      } else if (encoding === "quoted-printable") {
+        decoded = decodeQuotedPrintable(body);
+      }
+
+      if (contentType.includes("text/html") && !htmlBody) {
+        htmlBody = decoded.trim();
+      } else if (contentType.includes("text/plain") && !textBody) {
+        textBody = decoded.trim();
+      }
+    }
+
+    if (htmlBody || textBody) {
+      if (!textBody && htmlBody) textBody = stripHtmlTags(htmlBody);
+      return { textBody, htmlBody };
+    }
+  }
+
+  // Fallback: no MIME boundary, try regex approach
+  const htmlMatch = rawEmail.match(/<html[\s\S]*<\/html>/i) ?? rawEmail.match(/<body[\s\S]*<\/body>/i);
+  const htmlBody = htmlMatch ? decodeQuotedPrintable(htmlMatch[0]).trim() : null;
+
+  const splitParts = rawEmail.split(/\r?\n\r?\n/);
+  const bodyText = splitParts.length > 1 ? splitParts.slice(1).join("\n\n") : rawEmail;
+  const decodedText = decodeQuotedPrintable(bodyText).trim();
+  const textBody = decodedText ? decodedText : htmlBody ? stripHtmlTags(htmlBody) : null;
+
+  return { textBody, htmlBody };
+}
+
 export default class extends WorkerEntrypoint<Env> {
   async fetch(request: Request): Promise<Response> {
     const env: Env = this.env;
@@ -138,6 +249,107 @@ export default class extends WorkerEntrypoint<Env> {
           "WWW-Authenticate": "Basic realm=\"User Visible Realm\"",
         },
       });
+    }
+
+    const url = new URL(request.url);
+
+    if (url.pathname === "/api/mails" && request.method === "GET") {
+      const page = Math.max(1, Number.parseInt(url.searchParams.get("page") ?? "1", 10) || 1);
+      const pageSize = Math.min(100, Math.max(1, Number.parseInt(url.searchParams.get("pageSize") ?? "20", 10) || 20));
+      const offset = (page - 1) * pageSize;
+      const { results } = await env.DB.prepare(
+        `
+          SELECT
+            c.id,
+            c.message_id AS messageId,
+            c.from_org AS fromOrg,
+            c.from_addr AS fromAddr,
+            c.to_addr AS toAddr,
+            c.topic,
+            c.code,
+            c.created_at AS createdAt,
+            r.subject
+          FROM code_mails c
+          LEFT JOIN raw_mails r ON r.message_id = c.message_id
+          ORDER BY c.created_at DESC
+          LIMIT ? OFFSET ?
+        `
+      )
+        .bind(pageSize, offset)
+        .all();
+
+      const totalResult = await env.DB.prepare("SELECT COUNT(*) AS total FROM code_mails").first<{ total: number }>();
+      return jsonResponse({
+        page,
+        pageSize,
+        total: Number(totalResult?.total ?? 0),
+        items: results ?? [],
+      });
+    }
+
+    const mailDetailMatch = url.pathname.match(/^\/api\/mails\/(\d+)$/);
+    if (mailDetailMatch && request.method === "GET") {
+      const mailId = Number.parseInt(mailDetailMatch[1], 10);
+      const row = await env.DB.prepare(
+        `
+          SELECT
+            c.id,
+            c.message_id AS messageId,
+            c.from_org AS fromOrg,
+            c.from_addr AS fromAddr,
+            c.to_addr AS toAddr,
+            c.topic,
+            c.code,
+            c.created_at AS createdAt,
+            r.subject,
+            r.raw
+          FROM code_mails c
+          LEFT JOIN raw_mails r ON r.message_id = c.message_id
+          WHERE c.id = ?
+          LIMIT 1
+        `
+      )
+        .bind(mailId)
+        .first<any>();
+
+      if (!row) {
+        return jsonResponse({ error: "Mail not found" }, 404);
+      }
+
+      const { textBody, htmlBody } = extractMailBodies(String(row.raw ?? ""));
+      return jsonResponse({
+        id: row.id,
+        messageId: row.messageId,
+        fromOrg: row.fromOrg,
+        fromAddr: row.fromAddr,
+        toAddr: row.toAddr,
+        topic: row.topic,
+        code: row.code,
+        createdAt: row.createdAt,
+        subject: row.subject ?? null,
+        raw: row.raw ?? null,
+        textBody,
+        htmlBody,
+      });
+    }
+
+    if (url.pathname.startsWith("/api/")) {
+      return jsonResponse({ error: "Not found" }, 404);
+    }
+
+    if (env.ASSETS) {
+      const assetResponse = await env.ASSETS.fetch(request);
+      if (assetResponse.status !== 404) {
+        return assetResponse;
+      }
+
+      if (request.method === "GET" || request.method === "HEAD") {
+        const indexRequest = new Request(new URL("/index.html", request.url).toString(), request);
+        const indexResponse = await env.ASSETS.fetch(indexRequest);
+        if (indexResponse.status !== 404) {
+          return indexResponse;
+        }
+      }
     }
 
     try {
@@ -308,17 +520,24 @@ export default class extends WorkerEntrypoint<Env> {
         ? (message as RPCEmailMessage).rawEmail
         : await new Response(message.raw).text();
     const messageId = message.headers.get("Message-ID");
+    const rawSubject = message.headers.get("Subject");
 
     // Persist raw mail payload for auditing // 将原始邮件持久化以便审计
     const { success } = await env.DB.prepare(
-      "INSERT INTO raw_mails (from_addr, to_addr, raw, message_id) VALUES (?, ?, ?, ?)"
+      "INSERT INTO raw_mails (from_addr, to_addr, subject, raw, message_id) VALUES (?, ?, ?, ?, ?)"
     )
-      .bind(message.from, message.to, rawEmail, messageId)
+      .bind(message.from, message.to, rawSubject, rawEmail, messageId)
       .run();
 
     if (!success) {
       message.setReject(`Failed to save message from ${message.from} to ${message.to}`);
       console.log(`Failed to save message from ${message.from} to ${message.to}`);
+    }
+
+    // Skip promotional/bulk emails before hitting the LLM
+    if (isPromotionalEmail(message.headers, rawEmail)) {
+      console.log(`Skipping promotional email from ${message.from}: ${rawSubject}`);
+      return;
     }
 
     // Prompt instructs model how to format extraction // 提示词说明提取格式和字段要求

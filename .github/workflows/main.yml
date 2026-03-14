@@ -27,6 +27,12 @@ jobs:
       - name: Install Dependencies
         run: npm install
 
+      - name: Install Web Dependencies
+        run: npm --prefix web install
+
+      - name: Build Web App
+        run: npm run build:web
+
       # 步骤 4: 部署 Worker
       - name: Deploy Backend for ${{ github.ref_name }}
         run: |

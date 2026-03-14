@@ -134,11 +134,12 @@ If there is no code, clickable link, or this is an advertisement email, return:
    1. **初始化**
 
       ```bash
-      npm install wrangler -g # 安装 wrangler
-      git clone https://github.com/TooonyChen/AuthInbox.git # 克隆仓库
-      cd AuthInbox # 切换目录
-      npm install # 安装依赖
-      ```
+	      npm install wrangler -g # 安装 wrangler
+	      git clone https://github.com/TooonyChen/AuthInbox.git # 克隆仓库
+	      cd AuthInbox # 切换目录
+	      npm install # 安装依赖
+	      npm --prefix web install # 安装前端仪表盘依赖
+	      ```
 
    2. **创建 d1 数据库**
 
@@ -183,10 +184,11 @@ If there is no code, clickable link, or this is an advertisement email, return:
 
    4. **部署你的 worker** 🌐
 
-   部署你的 Worker 以使项目在互联网上可访问。运行以下命令：
-   ```bash
-   npx wrangler deploy
-   ```
+	   部署你的 Worker 以使项目在互联网上可访问。运行以下命令：
+	   ```bash
+	   npm run build:web
+	   npx wrangler deploy
+	   ```
    你将看到如下输出：
    ```
    output: https://auth-inbox.<你的子域名>.workers.dev
@@ -240,4 +242,3 @@ If there is no code, clickable link, or this is an advertisement email, return:
 - [ ] **API**: 添加API接口。
 - [ ] **发送邮件**：添加发送邮件功能。
 - [ ] **更多通知方式**：支持更多通知方式，如邮件、Slack等。
-

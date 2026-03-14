@@ -139,6 +139,7 @@ If there is no code, clickable link, or this is an advertisement email, return:
 		git clone https://github.com/TooonyChen/AuthInbox.git # clone the repository
 		cd AuthInbox # change directory
 		npm install # install dependencies
+		npm --prefix web install # install dashboard dependencies
 		```
 
 	2. **create d1 database**
@@ -185,6 +186,7 @@ If there is no code, clickable link, or this is an advertisement email, return:
 	4. **Deploy your own worker** 🌐
 	   Deploy your Worker to make your project accessible on the Internet. Run:
 	   ```bash
+	   npm run build:web
 	   npx wrangler deploy
 	   ```
 	   You will get output like this:
