@@ -42,6 +42,30 @@ pnpm run dev
 - **`ASSETS` binding name must be `ASSETS`** (matched in `src/index.ts` as `env.ASSETS`).
 - **Base64 MIME parts** are decoded with `atob()` in `extractMailBodies()`. Cloudflare Workers runtime supports `atob`/`btoa`.
 
+## AI Provider Configuration
+
+The AI layer uses a single unified function `callProvider(config: ProviderConfig, prompt)` in `src/index.ts`. All provider-specific logic is contained there — do not add new per-provider methods.
+
+**Env vars (set in `wrangler.toml` `[vars]` or as Cloudflare Secrets):**
+
+| Variable | Required | Description |
+|---|---|---|
+| `AI_BASE_URL` | ✅ | Provider base URL, no trailing slash |
+| `AI_API_KEY` | ✅ | API key (use Secret in production) |
+| `AI_API_FORMAT` | ✅ | `openai` \| `responses` \| `anthropic` |
+| `AI_MODEL` | ✅ | Model ID |
+| `AI_FALLBACK_BASE_URL` | optional | Fallback provider base URL |
+| `AI_FALLBACK_API_KEY` | optional | Fallback API key |
+| `AI_FALLBACK_API_FORMAT` | optional | Fallback format |
+| `AI_FALLBACK_MODEL` | optional | Fallback model ID |
+
+Fallback is only active when all four `AI_FALLBACK_*` vars are set. Primary retries 3× before fallback is attempted (1×).
+
+**Format → endpoint mapping:**
+- `openai` → `POST /v1/chat/completions` (OpenAI, Gemini OpenAI-compat, DeepSeek, Groq, …)
+- `responses` → `POST /v1/responses` (OpenAI Responses API)
+- `anthropic` → `POST /v1/messages` (Anthropic Claude direct; sends `anthropic-version: 2023-06-01`, `max_tokens: 1024`)
+
 ## Coding Style
 
 - Tabs, LF, UTF-8, no trailing whitespace (see `.editorconfig`).

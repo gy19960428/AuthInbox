@@ -2,9 +2,11 @@
 
 [English](https://github.com/TooonyChen/AuthInbox/blob/main/README.md) | [简体中文](https://github.com/TooonyChen/AuthInbox/blob/main/README_CN.md)
 
-**Auth Inbox** 是一个自建的开源多邮箱验证码的接码平台，基于 [Cloudflare](https://cloudflare.com/) 的免费服务。它可以自动处理收到的邮件，提取验证码或链接，并将其存储在数据库中。管理员可以通过一个用户友好的网页界面轻松查看提取的信息。AuthInbox 还支持通过 Bark 进行实时通知，使其成为一个全面且省心的邮件认证管理解决方案。
+**Auth Inbox** 是一个开源的自建验证码接码平台，基于 [Cloudflare](https://cloudflare.com/) 的免费无服务器服务。它会自动处理收到的邮件，在调用 AI 之前过滤掉广告邮件，提取验证码或链接并存入数据库。现代化的 React 仪表盘让管理员可以查看提取的验证码、查看原始邮件内容、渲染 HTML 邮件预览，全程受 Basic Auth 保护。
 
-不想在主邮箱中收到广告和垃圾邮件？想要多个备用邮箱用于注册服务和网站？试试这个吧！
+不想在主邮箱中收到广告和垃圾邮件？需要多个备用邮箱用于注册各类服务？试试这个**安全**、**无服务器**、**轻量**的解决方案吧！
+
+[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/TooonyChen/AuthInbox)
 
 ![框架](https://github.com/user-attachments/assets/f2ea1ef1-b500-4e47-88ba-a00d19f99595)
 
@@ -12,208 +14,177 @@
 
 ## 目录 📑
 
-- [功能](#features)
-- [使用的技术](#technologies-used)
-- [安装](#installation)
-- [许可证](#license)
-- [截图](#Screenshots)
+- [功能](#功能-)
+- [使用的技术](#使用的技术-)
+- [安装](#安装-)
+- [许可证](#许可证-)
+- [截图](#截图-)
 
 ---
 
 ## 功能 ✨
 
-- **邮件处理**：自动捕获和存储收到的邮件。
-- **验证码提取**：利用 AI 从邮件中提取验证码、链接和组织名称。
-- **安全前端**：提供受 Basic Access Authentication 保护的网页界面，用于查看提取的验证码。
-- **实时通知**：当提取到新的验证码时，可选通过 Bark 发送通知。
-- **数据库集成**：将原始和处理过的邮件数据存储在 D1Database 中。
+- **广告过滤**：通过邮件头（`List-Unsubscribe`、`Precedence: bulk` 等）识别并跳过营销邮件，不调用 AI，节省 token。
+- **AI 验证码提取**：使用 Google Gemini（OpenAI 作为备用）提取验证码、链接和组织名称。
+- **现代化仪表盘**：React 18 + shadcn/ui 界面，包含邮件列表、详情面板和三个 Tab —— 提取内容、原始邮件、HTML 渲染预览。
+- **安全 HTML 预览**：邮件 HTML 经 DOMPurify 净化后在沙箱 iframe 中渲染。
+- **一键复制**：验证码和链接均有复制按钮，复制后有 Toast 提示。
+- **实时通知**：可选接入 Bark，收到新验证码时推送到 iOS 设备。
+- **数据库存储**：所有原始邮件和 AI 提取结果均存入 Cloudflare D1。
 
 ---
 
 ## 使用的技术 🛠️
 
-- **Cloudflare Workers**: 无服务器平台，用于处理邮件处理和Web请求。
-- **Cloudflare D1**: Cloudflare的无服务器SQL数据库，用于存储邮件数据。
-- **TypeScript**: 强类型编程语言，确保代码的稳健性和可维护性。
-- **AI 提示词优化**: 定制的提示确保从多种邮件格式中精确提取标题、代码和主题。
-- **Google AI Studio API**: 利用优化的AI提示从邮件中提取相关信息，以提升数据的准确性和可靠性。
-- **Bark API**: 可选集成，用于发送实时通知。
-- **HTML/CSS**: 前端界面，具有响应式和现代化设计。
-- **Google Fonts**: 通过一致的排版增强Web界面的视觉吸引力。
-
-
----
-
-## AI 提示词优化 🧠
-
-为了确保从收到的电子邮件中准确提取信息，我们使用Google AI Studio API实施了AI提示优化。通过设计精确且具有上下文意识的提示，AI可以可靠地识别和提取关键要素，如：
-
-- **组织名称（标题）**: 识别发件人的组织或公司。
-- **验证码/链接**: 提取账户验证所需的代码、链接或密码。
-- **电子邮件主题**: 总结电子邮件的主要目的，例如“账户验证”或“密码重置”。
-
-**提示词如下:**
-```plaintext
-Email content: [Insert raw email content here].
-
-Please read the email and extract the following information:
-1. Code/Link/Password from the email (if available).
-2. Organization name (title) from which the email is sent.
-3. A brief summary of the email's topic (e.g., 'account verification').
-
-Format the output as JSON with this structure:
-{
-  "title": "The organization or company that sent the verification code (e.g., 'Netflix')",
-  "code": "The extracted verification code, link, or password (e.g., '123456' or 'https://example.com/verify?code=123456')",
-  "topic": "A brief summary of the email's topic (e.g., 'account verification')",
-  "codeExist": 1
-}
-
-If both a code and a link are present, include both in the 'code' field like this:
-"code": "code, link"
-
-If there is no code, clickable link, or this is an advertisement email, return:
-{
-  "codeExist": 0
-}
-
-```
+- **Cloudflare Workers** — 处理邮件和 API 的无服务器运行时。
+- **Cloudflare D1** — 兼容 SQLite 的无服务器数据库。
+- **Cloudflare Email Routing** — 将收到的邮件路由到 Worker。
+- **React 18 + Vite + Tailwind CSS + shadcn/ui** — 前端仪表盘。
+- **任意 OpenAI 兼容 / Anthropic AI 提供商** — 通过环境变量配置，支持 Gemini、OpenAI、DeepSeek、Groq、Anthropic 等。
+- **Bark API** — iOS 实时推送通知（可选）。
+- **TypeScript** — 端到端类型安全。
 
 ---
 
 ## 安装 ⚙️
-0. **先决条件**
 
-	- 创建一个 [Google AI Studio API](https://aistudio.google.com/)
+### 先决条件
 
-	- 在你的 [Cloudflare](https://dash.cloudflare.com/) 账户上绑定一个域名
+- 一个 [Google AI Studio API Key](https://aistudio.google.com/)
+- 在 [Cloudflare](https://dash.cloudflare.com/) 账户上绑定一个域名
+- Cloudflare 账户 ID 和 API Token，可在 [此处](https://dash.cloudflare.com/profile/api-tokens) 获取
+- *（可选）* [Bark App](https://bark.day.app/)，用于 iOS 推送通知
 
-	  - 获取你的Cloudflare 账户 ID, 可在 [Cloudflare API Tokens](https://dash.cloudflare.com/profile/api-tokens) 中找到
+---
 
-      - 获取你的 Cloudflare API Token，可在 [Cloudflare API Tokens](https://dash.cloudflare.com/profile/api-tokens) 中找到
+### 方式一 — 通过 GitHub Actions 部署
 
-	- （可选）下载[Bark App](https://bark.day.app/)，在App中获得一个Bark Token
+1. **创建 D1 数据库**
 
-1. **使用 Github Pages 进行安装**
+   进入 [Cloudflare 仪表盘](https://dash.cloudflare.com/) → `Workers & Pages` → `D1 SQL Database` → `Create`，名称填 `inbox-d1`。
 
-	1. **创建 D1 数据库**
+   点击进入数据库 → `Console`，粘贴并执行 [`db/schema.sql`](https://github.com/TooonyChen/AuthInbox/blob/main/db/schema.sql) 中的内容。
 
-		1. 进入 [Cloudflare 仪表盘](https://dash.cloudflare.com/) -> `Workers & Pages` -> `D1 SQL Database` -> `Create`
+   复制 `database_id`，下一步会用到。
 
-		2. 输入名称 `inbox-d1` 并点击 `Create`
+2. **Fork 并部署**
 
-		3. 创建 `inbox-d1` 后，点击进入并找到 `Console`
+   [![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/TooonyChen/AuthInbox)
 
-		4. 在控制台中执行 [db/schema.sql](https://github.com/TooonyChen/AuthInbox/blob/main/db/schema.sql) 中的 SQL 命令，直接复制、粘贴并执行它。
+   在你 Fork 的仓库中，进入 `Settings` → `Secrets and variables` → `Actions`，添加以下 Secrets：
+   - `CLOUDFLARE_ACCOUNT_ID`
+   - `CLOUDFLARE_API_TOKEN`
+   - `TOML` — 使用[不带注释的模板](https://github.com/TooonyChen/AuthInbox/blob/main/wrangler.toml.example.clear)，避免解析报错。
 
-		5. 复制 `database_id` 和 `database_name`，用于下一步配置 `TOML` 文件时使用
+   然后进入 `Actions` → `Deploy Auth Inbox to Cloudflare Workers` → `Run workflow`。
 
-	2. **部署 Cloudflare Worker**
+   部署成功后，**务必删除 workflow 日志**，防止配置信息泄露。
 
-		[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/TooonyChen/AuthInbox)
+3. 跳转到[设置邮件转发](#3-设置邮件转发-)。
 
-		1. 点击上方按钮 fork 此仓库，或直接 fork 此仓库。
+---
 
-		2. 打开你 fork 的仓库，找到 `Actions` 页面，找到 `Deploy Auth Inbox to Cloudflare Workers`，并点击 `enable workflow` 激活 workflow。
+### 方式二 — 通过命令行部署
 
-		3. 然后，在仓库页面中，导航到 `Settings` -> `Secrets and variables` -> `Actions` -> `Repository secrets`，并添加以下 secrets：
-			- `CLOUDFLARE_ACCOUNT_ID`: Cloudflare 账户 ID。
-			- `CLOUDFLARE_API_TOKEN`: Cloudflare API Token。
-			- `TOML`: 配置文件，参考 [带有注释的wrangler.toml](https://github.com/TooonyChen/AuthInbox/blob/main/wrangler.toml.example)。**添加至secrets时，请使用[不带注释的版本](https://github.com/TooonyChen/AuthInbox/blob/main/wrangler.toml.example.clear)来避免奇怪的报错。**
+1. **克隆并安装依赖**
 
-		4. 返回你仓库的 `Actions` 页面，找到 `Deploy Auth Inbox to Cloudflare Workers`，并按 `Run workflow` 来部署 worker。如果没找到 `Run workflow` 按钮，请你随便修改一下repo中的`readme.md`文件，让Github Actions自动运行。
+   ```bash
+   git clone https://github.com/TooonyChen/AuthInbox.git
+   cd AuthInbox
+   pnpm install
+   ```
 
-		5. 部署成功后，你可以在 `Deploy Auth Inbox to Cloudflare Workers` 的 workflow 日志中找到你的 worker URL。
+2. **创建 D1 数据库**
 
-		6. 在 workflow 日志页面的右上角找到 `delete all logs` 来删除日志，删除它来避免数据外泄。
+   ```bash
+   pnpm wrangler d1 create inbox-d1
+   pnpm wrangler d1 execute inbox-d1 --remote --file=./db/schema.sql
+   ```
 
-		7. 完成！✅ 请前往第三步：设置邮件转发。
+   复制输出中的 `database_id`。
 
-2. **使用 Wrangler 命令行部署到 Cloudflare Workers**
+3. **配置**
 
-   1. **初始化**
+   ```bash
+   cp wrangler.toml.example wrangler.toml
+   ```
 
-      ```bash
-	      npm install wrangler -g # 安装 wrangler
-	      git clone https://github.com/TooonyChen/AuthInbox.git # 克隆仓库
-	      cd AuthInbox # 切换目录
-	      npm install # 安装依赖
-	      npm --prefix web install # 安装前端仪表盘依赖
-	      ```
-
-   2. **创建 d1 数据库**
-
-      当你第一次执行 [Wrangler](https://developers.cloudflare.com/workers/wrangler/get-started/) 登录命令时，系统会提示你登录。按提示操作即可。
-
-      ```bash
-      npx wrangler d1 create inbox-d1 # 创建名为 'inbox-d1' 的 d1 数据库
-      npx wrangler d1 execute inbox-d1 --remote --file=./db/schema.sql # 执行 schema.sql 文件
-      ```
-      你将会看到如下结果：
-      ```bash
-      ✅ Successfully created DB 'inbox-d1'
-
-      [[d1_databases]]
-      binding = "DB" # 在你的 Worker 中通过 env.DB 访问
-      database_name = "inbox-d1"
-      database_id = "<你的数据库的唯一ID>"
-      ```
-      请从终端复制结果，你将在下一步中使用它们。
-
-   3. **配置环境变量**
-
-   使用项目根目录下的 `wrangler.toml` 文件，并添加所需的环境变量：
+   编辑 `wrangler.toml`，至少填写以下内容：
 
    ```toml
-   name = "auth-inbox"
-   type = "typescript"
-
    [vars]
-   UseBark = 'true' # 设置为 'true' 启用 Bark，设置为 'false' 禁用
-   barkUrl = "https://api.day.app"
-   barkTokens = "[token1, token2]" # 填写你 iOS 设备上的 Bark tokens，可从 https://bark.day.app/ 下载应用获取，可以填写多个。如果你只想用一个，那么填写 '[token1]'
-   FrontEndAdminID = "admin" # 你的登录 ID
-   FrontEndAdminPassword = "password" # 你的登录密码
-   GoogleAPIKey = "xxxxxxxxxxx" # 你的 Google API key，如果没有可以前往 https://aistudio.google.com/ 生成一个
+   FrontEndAdminID       = "你的登录账号"
+   FrontEndAdminPassword = "你的登录密码"
+   UseBark               = "false"
 
-   [[d1_databases]] # 从步骤 2 的终端结果中复制这些行。
-   binding = "DB"
-   database_name = "inbox-d1" # 从步骤 2 中复制
-   database_id = "<你的数据库的唯一ID>" # 从步骤 2 中复制
+   # AI 提供商配置
+   AI_BASE_URL    = "https://generativelanguage.googleapis.com/v1beta/openai"
+   AI_API_KEY     = "你的 API Key"
+   AI_API_FORMAT  = "openai"
+   AI_MODEL       = "gemini-2.0-flash"
+
+   [[d1_databases]]
+   binding       = "DB"
+   database_name = "inbox-d1"
+   database_id   = "<你的数据库ID>"
    ```
 
-   4. **部署你的 worker** 🌐
+   **`AI_API_FORMAT`** 三选一：
 
-	   部署你的 Worker 以使项目在互联网上可访问。运行以下命令：
-	   ```bash
-	   npm run build:web
-	   npx wrangler deploy
-	   ```
-   你将看到如下输出：
+   | 值 | 实际请求路径 | 适用提供商 |
+   |---|---|---|
+   | `openai` | `/v1/chat/completions` | OpenAI、Gemini（OpenAI 兼容）、DeepSeek、Groq、Mistral 等 |
+   | `responses` | `/v1/responses` | OpenAI Responses API |
+   | `anthropic` | `/v1/messages` | Anthropic Claude 直连 |
+
+   **常用 `AI_BASE_URL`：**
    ```
-   output: https://auth-inbox.<你的子域名>.workers.dev
+   OpenAI:                https://api.openai.com
+   Gemini（OpenAI 兼容）: https://generativelanguage.googleapis.com/v1beta/openai
+   Anthropic:             https://api.anthropic.com
+   DeepSeek:              https://api.deepseek.com
+   Groq:                  https://api.groq.com/openai
    ```
-   你现在可以访问该 URL 来查看你部署的 Auth Inbox 的邮件面板。
 
-3. **设置邮件转发** ✉️
+   **备用模型（可选）**，主模型失败重试 3 次后触发：
+   ```toml
+   # AI_FALLBACK_BASE_URL   = "https://api.openai.com"
+   # AI_FALLBACK_API_KEY    = "备用 API Key"
+   # AI_FALLBACK_API_FORMAT = "openai"
+   # AI_FALLBACK_MODEL      = "gpt-4o-mini"
+   ```
 
-   前往 [Cloudflare Dashboard](https://dash.cloudflare.com/) -> `Websites` -> `<你的域名>` -> `Email` -> `Email-Routing` -> `Routing Rules`
+   可选 Bark 配置：`barkTokens`、`barkUrl`。
 
-   如果你想使用“接收所有地址”：
-   ![image](https://github.com/user-attachments/assets/53e5a939-6b03-4ca6-826a-7a5f02f361ac)
+4. **构建并部署**
 
-   如果你想使用“自定义地址”：
-   ![image](https://github.com/user-attachments/assets/b0d0ab94-c2ad-4870-ac08-d53e64b2c880)
+   ```bash
+   pnpm run deploy
+   ```
 
-4. **完成！** ✅
+   输出：`https://auth-inbox.<你的子域名>.workers.dev`
 
-   现在你可以访问你的新部署的 Auth Inbox URL，查看电子邮件结果。
+---
+
+### 3. 设置邮件转发 ✉️
+
+进入 [Cloudflare 仪表盘](https://dash.cloudflare.com/) → `Websites` → `<你的域名>` → `Email` → `Email Routing` → `Routing Rules`。
+
+**接收所有地址**（将所有邮件转发给 Worker）：
+![image](https://github.com/user-attachments/assets/53e5a939-6b03-4ca6-826a-7a5f02f361ac)
+
+**自定义地址**（转发特定地址）：
+![image](https://github.com/user-attachments/assets/b0d0ab94-c2ad-4870-ac08-d53e64b2c880)
+
+### 4. 完成！🎉
+
+访问你的 Worker URL，用你设置的账号密码登录，即可开始接收验证邮件。
 
 ---
 
 ## 许可证 📜
 
-本项目基于 [MIT License](LICENSE) 许可证。
+[MIT License](LICENSE)
 
 ---
 
@@ -221,24 +192,26 @@ If there is no code, clickable link, or this is an advertisement email, return:
 
 ![image](https://github.com/user-attachments/assets/41db550c-8340-4315-ba87-85330abc5dfb)
 
-
 ---
 
 ## 鸣谢 🙏
 
-- 感谢 **Cloudflare Workers** 提供强大的无服务器平台。
-- 感谢 **Google Gemini AI** 提供智能的邮件内容提取功能。
-- 感谢 **Bark** 提供实时通知能力。
-- 感谢 **开源社区** 为像 Auth Inbox 这样的项目提供灵感和支持。
-- 感谢 **ChatGPT** 协助我写代码
+- **Cloudflare Workers** 提供强大的无服务器平台。
+- **Google Gemini AI** 提供智能邮件内容提取能力。
+- **Bark** 提供实时推送通知。
+- **shadcn/ui** 提供组件库。
+- **开源社区** 提供灵感与支持。
 
 ---
+
 ## TODO 📝
 
-- [x] **Github Pages 部署**：通过 Github Actions 自动部署到 Cloudflare Workers。
-- [ ] **正则表达式**：使用正则表达式替代 Google Gemini AI 以保护隐私，并将使用 AI 作为一个可选功能。
-- [ ] **多用户支持**：增加管理多用户的功能，以提高灵活性并扩展使用范围。
-- [ ] **增强前端设计**：改进网页界面的UI/UX设计，使其更加现代化和用户友好。
-- [ ] **API**: 添加API接口。
-- [ ] **发送邮件**：添加发送邮件功能。
-- [ ] **更多通知方式**：支持更多通知方式，如邮件、Slack等。
+- [x] GitHub Actions 自动部署
+- [x] OpenAI 备用模型支持
+- [x] React 仪表盘（shadcn/ui）
+- [x] 广告邮件过滤（调用 AI 前拦截）
+- [x] 原始邮件查看 + 沙箱 HTML 预览
+- [ ] 正则表达式提取（无 AI 选项）
+- [ ] 多用户支持
+- [ ] 更多通知方式（Slack、Webhook 等）
+- [ ] 发送邮件功能

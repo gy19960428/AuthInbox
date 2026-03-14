@@ -2,10 +2,9 @@
 
 [English](https://github.com/TooonyChen/AuthInbox/blob/main/README.md) | [简体中文](https://github.com/TooonyChen/AuthInbox/blob/main/README_CN.md)
 
-**Auth Inbox** is an open-source project that securely receive and views authentication emails using [Cloudflare](https://cloudflare.com/)'s free serverless services. It automatically processes incoming emails, extracts verification codes or links, and stores them in a database. A user-friendly web interface is provided for administrators to easily review the extracted information. AuthInbox also supports real-time notifications via Bark, making it a comprehensive and hassle-free solution for email authentication management.
+**Auth Inbox** is an open-source, self-hosted email verification code platform built on [Cloudflare](https://cloudflare.com/)'s free serverless services. It automatically processes incoming emails, filters out promotional mail before hitting the AI, extracts verification codes or links, and stores them in a database. A modern React dashboard lets administrators review extracted codes, inspect raw emails, and render HTML email previews — all protected by Basic Auth.
 
-Don't wanna receive ads and spams on your main email? Want a bunch of alternative email for register services and websites? Try this **secure**, **serverless**, **light** service!
-
+Don't want ads and spam in your main inbox? Need a bunch of alternative addresses for signups? Try this **secure**, **serverless**, **lightweight** service!
 
 [![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/TooonyChen/AuthInbox)
 
@@ -15,205 +14,177 @@ Don't wanna receive ads and spams on your main email? Want a bunch of alternativ
 
 ## Table of Contents 📑
 
-- [Features](#features)
-- [Technologies Used](#technologies-used)
-- [Installation](#installation)
-- [License](#license)
-- [Screenshots](#Screenshots)
+- [Features](#features-)
+- [Technologies Used](#technologies-used-)
+- [Installation](#installation-)
+- [License](#license-)
+- [Screenshots](#screenshots-)
 
 ---
 
 ## Features ✨
 
-- **Email Processing**: Automatically captures and stores incoming emails.
-- **Code Extraction**: Utilizes AI to extract verification codes, links, and organization names from emails.
-- **Secure Front-End**: Provides a web interface protected by Basic Access Authentication for viewing extracted codes.
-- **Real-Time Notifications**: Optionally sends notifications via Bark when new codes are extracted.
-- **Database Integration**: Stores raw and processed email data in a Cloudflare D1 Database.
+- **Promotional Filter**: Detects and skips bulk/marketing emails via headers (`List-Unsubscribe`, `Precedence: bulk`, etc.) before calling the AI — saves tokens.
+- **AI Code Extraction**: Uses Google Gemini (with OpenAI as fallback) to extract verification codes, links, and organization names.
+- **Modern Dashboard**: React 18 + shadcn/ui interface with mail list, detail panel, and three tabs — Extracted, Raw Email, Rendered HTML preview.
+- **Safe HTML Preview**: Email HTML is sanitized with DOMPurify and rendered in a sandboxed iframe.
+- **One-click Copy**: Verification codes and links have copy buttons with toast confirmation.
+- **Real-Time Notifications**: Optionally sends Bark push notifications when new codes arrive.
+- **Database**: Stores all raw emails and AI-extracted results in Cloudflare D1.
 
 ---
 
 ## Technologies Used 🛠️
 
-- **Cloudflare Workers**: Serverless platform for handling email processing and web requests.
-- **Cloudflare D1**: Cloudflare's serverless SQL database for storing email data.
-- **TypeScript**: Strongly typed programming language for robust and maintainable code.
-- **Google AI Studio API**: Utilized for extracting relevant information from emails with optimized AI prompts to enhance data accuracy and reliability.
-- **AI Prompt Optimization**: Custom-crafted prompts ensure precise extraction of titles, codes, and topics from varied email formats.
-- **Bark API**: Optional integration for sending real-time notifications.
-- **HTML/CSS**: Front-end interface with responsive and modern design.
-
----
-
-## AI Prompt Optimization 🧠
-
-To ensure accurate extraction of information from incoming emails, we've implemented AI prompt optimization using the Google AI Studio API. By crafting precise and context-aware prompts, the AI can reliably identify and extract key elements such as:
-
-- **Organization Name (Title)**: Identifies the sender's organization or company.
-- **Verification Code/Link**: Extracts codes, links, or passwords necessary for account verification.
-- **Email Topic**: Summarizes the main purpose of the email, such as 'account verification' or 'password reset'.
-
-**Prompt:**
-```plaintext
-Email content: [Insert raw email content here].
-
-Please read the email and extract the following information:
-1. Code/Link/Password from the email (if available).
-2. Organization name (title) from which the email is sent.
-3. A brief summary of the email's topic (e.g., 'account verification').
-
-Format the output as JSON with this structure:
-{
-  "title": "The organization or company that sent the verification code (e.g., 'Netflix')",
-  "code": "The extracted verification code, link, or password (e.g., '123456' or 'https://example.com/verify?code=123456')",
-  "topic": "A brief summary of the email's topic (e.g., 'account verification')",
-  "codeExist": 1
-}
-
-If both a code and a link are present, include both in the 'code' field like this:
-"code": "code, link"
-
-If there is no code, clickable link, or this is an advertisement email, return:
-{
-  "codeExist": 0
-}
-```
+- **Cloudflare Workers** — Serverless runtime for email handling and API.
+- **Cloudflare D1** — SQLite-compatible serverless database.
+- **Cloudflare Email Routing** — Routes incoming emails to the Worker.
+- **React 18 + Vite + Tailwind CSS + shadcn/ui** — Frontend dashboard.
+- **Any OpenAI-compatible / Anthropic AI provider** — Configurable via env vars; Gemini, OpenAI, DeepSeek, Groq, Anthropic, and more.
+- **Bark API** — Optional iOS push notifications.
+- **TypeScript** — End-to-end type safety.
 
 ---
 
 ## Installation ⚙️
-0. **Prerequisites**
 
-	- Create a [Google AI Studio API](https://aistudio.google.com/)
+### Prerequisites
 
-	- Bind a domain to your [Cloudflare](https://dash.cloudflare.com/) account
+- A [Google AI Studio API key](https://aistudio.google.com/)
+- A domain bound to your [Cloudflare](https://dash.cloudflare.com/) account
+- Cloudflare Account ID and API Token from [here](https://dash.cloudflare.com/profile/api-tokens)
+- *(Optional)* [Bark App](https://bark.day.app/) for iOS push notifications
 
-	  - Get Your Cloudflare Account ID from [here](https://dash.cloudflare.com/profile)
+---
 
-      - Generate a Cloudflare Workers API Token from [here](https://dash.cloudflare.com/profile/api-tokens)
+### Option 1 — Deploy via GitHub Actions
 
-	- (Optional) Download the [Bark App](https://bark.day.app/) and get a Bark Token from the App
+1. **Create D1 Database**
 
-1. **Install using Github Pages**
+   Go to [Cloudflare Dashboard](https://dash.cloudflare.com/) → `Workers & Pages` → `D1 SQL Database` → `Create`. Name it `inbox-d1`.
 
-   1. **Creating D1 Database**
+   Open the database → `Console`, paste and run the contents of [`db/schema.sql`](https://github.com/TooonyChen/AuthInbox/blob/main/db/schema.sql).
 
-      1. Go to [Cloudflare Dashboard](https://dash.cloudflare.com/) -> `Workers & Pages` -> `D1 SQL Database` -> `Create`
+   Copy the `database_id` for the next step.
 
-      2. Input Name `inbox-d1` and click `Create`
+2. **Fork & Deploy**
 
-      3. After Creating `inbox-d1`, click in to it and find `Console`
+   [![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/TooonyChen/AuthInbox)
 
-      4. Execute the following SQL command from [db/schema.sql](https://github.com/TooonyChen/AuthInbox/blob/main/db/schema.sql) in the console, just copy, paste and execute it.
+   In your forked repository, go to `Settings` → `Secrets and variables` → `Actions` and add:
+   - `CLOUDFLARE_ACCOUNT_ID`
+   - `CLOUDFLARE_API_TOKEN`
+   - `TOML` — use the [comment-free template](https://github.com/TooonyChen/AuthInbox/blob/main/wrangler.toml.example.clear) to avoid parse errors.
 
-      5. Copy the `database_id` and `database_name` for the next step when you configure the `TOML` file
+   Then go to `Actions` → `Deploy Auth Inbox to Cloudflare Workers` → `Run workflow`.
 
-   2. **Deploy the Cloudflare Worker**
+   After success, **delete the workflow logs** to avoid leaking your config.
 
-      [![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/TooonyChen/AuthInbox)
+3. Jump to [Set Email Forwarding](#3-set-email-forwarding-).
 
-      1. Click the button on the top to fork this repository or directly fork this repository.
+---
 
-      2. Open the repository that you fork, find the `Actions` page, find `Deploy Auth Inbox to Cloudflare Workers`, and click `enable workflow` to activate the workflows.
+### Option 2 — Deploy via CLI
 
-      3. Then, in the repository page, navigate to `Settings` -> `Secrets and variables` -> `Actions` -> `Repository secrets` and add the following secrets:
-         - `CLOUDFLARE_ACCOUNT_ID`: Cloudflare account ID.
-         - `CLOUDFLARE_API_TOKEN`: Cloudflare API Token.
-         - `TOML`: Configuration file, refer to [wrangler.toml with comments](https://github.com/TooonyChen/AuthInbox/blob/main/wrangler.toml.example). **Please use the [version without comments](https://github.com/TooonyChen/AuthInbox/blob/main/wrangler.toml.example.clear) in adding the secret in case of unknown errors.**
+1. **Clone and install**
 
-      4. Back to `Action` Page in your repository, find `Deploy Auth Inbox to Cloudflare Workers` and press `Run workflow` to deploy the worker. If you can't find the `Run workflow` button, you can trigger GitHub Actions automatically by making a small edit to the `readme.md` file in your repository.
+   ```bash
+   git clone https://github.com/TooonyChen/AuthInbox.git
+   cd AuthInbox
+   pnpm install
+   ```
 
-      5. After the deployment is successful, you can find the URL of your worker in the `Deploy Auth Inbox to Cloudflare Workers` workflow log.
+2. **Create D1 database**
 
-      6. Find the `delete all logs` button in the upper-right corner of the workflow logs page. Delete the logs to avoid data leakage.
+   ```bash
+   pnpm wrangler d1 create inbox-d1
+   pnpm wrangler d1 execute inbox-d1 --remote --file=./db/schema.sql
+   ```
 
-      7. Done! ✅ Jump to step 3: Set Email Forwarding.
+   Copy the `database_id` from the output.
 
+3. **Configure**
 
-2. **Install using command-line**
+   ```bash
+   cp wrangler.toml.example wrangler.toml
+   ```
 
-	1. **Initialization**
+   Edit `wrangler.toml` — at minimum fill in:
 
-		```bash
-		npm install wrangler -g # install wrangler
-		git clone https://github.com/TooonyChen/AuthInbox.git # clone the repository
-		cd AuthInbox # change directory
-		npm install # install dependencies
-		npm --prefix web install # install dashboard dependencies
-		```
+   ```toml
+   [vars]
+   FrontEndAdminID       = "your-username"
+   FrontEndAdminPassword = "your-password"
+   UseBark               = "false"
 
-	2. **create d1 database**
+   # AI provider — choose any compatible service
+   AI_BASE_URL    = "https://generativelanguage.googleapis.com/v1beta/openai"
+   AI_API_KEY     = "your-api-key"
+   AI_API_FORMAT  = "openai"
+   AI_MODEL       = "gemini-2.0-flash"
 
-		When you execute the [Wrangler](https://developers.cloudflare.com/workers/wrangler/get-started/) login command for the first time, you will be prompted to log in. Just follow the prompts.
+   [[d1_databases]]
+   binding       = "DB"
+   database_name = "inbox-d1"
+   database_id   = "<your-database-id>"
+   ```
 
-		```bash
-		npx wrangler d1 create inbox-d1 # creating a d1 database called 'inbox-d1'
-		npx wrangler d1 execute inbox-d1 --remote --file=./db/schema.sql # write the schema.sql to the database
-		```
-		you will get the result like this:
-		```bash
-		✅ Successfully created DB 'inbox-d1'
+   **`AI_API_FORMAT`** options:
 
-		[[d1_databases]]
-		binding = "DB" # available in your Worker on env.DB
-		database_name = "inbox-d1"
-		database_id = "<unique-ID-for-your-database>"
-		```
-		please copy the result from your terminal, you will use them in the next step
+   | Value | Endpoint | Compatible providers |
+   |---|---|---|
+   | `openai` | `/v1/chat/completions` | OpenAI, Gemini (OpenAI-compat), DeepSeek, Groq, Mistral, … |
+   | `responses` | `/v1/responses` | OpenAI Responses API |
+   | `anthropic` | `/v1/messages` | Anthropic Claude |
 
-	3. **Configure Environment Variables**
+   **Common `AI_BASE_URL` values:**
+   ```
+   OpenAI:              https://api.openai.com
+   Gemini (OAI-compat): https://generativelanguage.googleapis.com/v1beta/openai
+   Anthropic:           https://api.anthropic.com
+   DeepSeek:            https://api.deepseek.com
+   Groq:                https://api.groq.com/openai
+   ```
 
-		Use `wrangler.toml` file in the project root with the necessary environment variables:
+   **Optional fallback provider** (triggered if primary fails after 3 retries):
+   ```toml
+   # AI_FALLBACK_BASE_URL   = "https://api.openai.com"
+   # AI_FALLBACK_API_KEY    = "your-fallback-key"
+   # AI_FALLBACK_API_FORMAT = "openai"
+   # AI_FALLBACK_MODEL      = "gpt-4o-mini"
+   ```
 
-		```toml
-		name = "auth-inbox"
-		type = "typescript"
+   Optional Bark vars: `barkTokens`, `barkUrl`.
 
-		[vars]
-		UseBark = "true" # set 'true' to use or 'false' to not use
-		barkUrl = "https://api.day.app"
-		barkTokens = "[token1, token2]" # set to your bark tokens on your iOS device, download it from https://bark.day.app/, you can use multiple tokens, if you only use one, then set it to '[token1]'
-		FrontEndAdminID = "admin" # your login
-		FrontEndAdminPassword = "password" # your password
-		GoogleAPIKey = "xxxxxxxxxxx" # your google api, go to https://aistudio.google.com/ to generate one if u dont have
+4. **Build and deploy**
 
-		[[d1_databases]] # Copy the lines obtained from step 2 from your terminal.
-		binding = "DB"
-		database_name = "inbox-d1" # Copy from step 2
-		database_id = "<unique-ID-for-your-database>" # Copy from step 2
-		```
+   ```bash
+   pnpm run deploy
+   ```
 
-	4. **Deploy your own worker** 🌐
-	   Deploy your Worker to make your project accessible on the Internet. Run:
-	   ```bash
-	   npm run build:web
-	   npx wrangler deploy
-	   ```
-	   You will get output like this:
-	   ```
-	   Outputs: https://auth-inbox.<YOUR_SUBDOMAIN>.workers.dev
-	   ```
-	   You can now visit the URL for your newly depolyed Auth Inbox for checking the email results.
+   Output: `https://auth-inbox.<your-subdomain>.workers.dev`
 
-3. **Set Email Forwarding** ✉️
+---
 
-	Go to [Cloudflare Dashboard](https://dash.cloudflare.com/) -> `Websites` -> `<your-domain>` -> `Email` -> `Email-Routing` -> `Routing Rules`
+### 3. Set Email Forwarding ✉️
 
-	if you want to use `catch-all address`:
-	![image](https://github.com/user-attachments/assets/53e5a939-6b03-4ca6-826a-7a5f02f361ac)
+Go to [Cloudflare Dashboard](https://dash.cloudflare.com/) → `Websites` → `<your-domain>` → `Email` → `Email Routing` → `Routing Rules`.
 
-	if you want to use `custom address`:
-	![image](https://github.com/user-attachments/assets/b0d0ab94-c2ad-4870-ac08-d53e64b2c880)
+**Catch-all** (forwards all addresses to the Worker):
+![image](https://github.com/user-attachments/assets/53e5a939-6b03-4ca6-826a-7a5f02f361ac)
 
-4. **Enjoy!** 🎉
+**Custom address** (forwards a specific address):
+![image](https://github.com/user-attachments/assets/b0d0ab94-c2ad-4870-ac08-d53e64b2c880)
 
-	All set! ✅ You can now receive and view your authentication emails securely and efficiently using Auth Inbox!
+### 4. Done! 🎉
+
+Visit your Worker URL, log in with the credentials you set, and start receiving verification emails.
 
 ---
 
 ## License 📜
 
-This project is licensed under the [MIT License](LICENSE).
+[MIT License](LICENSE)
 
 ---
 
@@ -221,27 +192,26 @@ This project is licensed under the [MIT License](LICENSE).
 
 ![image](https://github.com/user-attachments/assets/ec14d226-ae82-4689-b44d-22850002c34c)
 
-
 ---
 
 ## Acknowledgements 🙏
 
-- **Cloudflare Workers** for providing a powerful serverless platform.
-- **Google Gemini AI** for enabling intelligent email content extraction.
-- **Bark** for real-time notification capabilities.
-- **Open Source Community** for inspiring and supporting projects like AuthInbox.
-- **ChatGPT** for helping me writing some of the code.
+- **Cloudflare Workers** for the serverless platform.
+- **Google Gemini AI** for intelligent email extraction.
+- **Bark** for real-time notifications.
+- **shadcn/ui** for the component library.
+- **Open Source Community** for the inspiration.
 
 ---
 
 ## TODO 📝
 
-- [x] **Github Pages Deployment**: Automatically deploy to Cloudflare Workers via Github Actions.
-- [ ] **Regular Expressions**: Using regular expressions instead of Google Gemini AI for privacy, make Gemini AI to an optional function.
-- [ ] **Multi-User Support**: Add functionality to manage multiple users for increased flexibility and broader usage.
-- [ ] **Enhance Front-End Design**: Improve the UI/UX of the web interface for a more modern and user-friendly experience.
-- [ ] **API**: Add API functionality.
-- [ ] **Sending Email**: Add the ability to send emails.
-- [ ] **More Notification Methods**: Support additional notification methods such as email, Slack, etc.
-
----
+- [x] GitHub Actions deployment
+- [x] OpenAI fallback support
+- [x] React dashboard with shadcn/ui
+- [x] Promotional email filter (skip ads before LLM)
+- [x] Raw email viewer + sandboxed HTML preview
+- [ ] Regex-based extraction as an AI-free option
+- [ ] Multi-user support
+- [ ] More notification methods (Slack, webhook, etc.)
+- [ ] Sending email support

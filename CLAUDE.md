@@ -23,6 +23,12 @@ pnpm run test
 3. `src/index.html` is a live fallback. Do not delete.
 4. DOMPurify + sandboxed iframe on all email HTML rendering. Do not relax.
 5. Basic Auth gate is first in `WorkerEntrypoint.fetch()`. Do not move or bypass.
+6. All AI calls go through `callProvider()`. Do not add per-provider methods alongside it.
+
+## AI Provider Env Vars
+
+Required: `AI_BASE_URL`, `AI_API_KEY`, `AI_API_FORMAT` (`openai`|`responses`|`anthropic`), `AI_MODEL`.
+Optional fallback: `AI_FALLBACK_BASE_URL`, `AI_FALLBACK_API_KEY`, `AI_FALLBACK_API_FORMAT`, `AI_FALLBACK_MODEL` (all four or none).
 
 ## Frontend Component Rules
 
