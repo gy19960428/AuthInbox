@@ -172,3 +172,7 @@ dist
 .wrangler/
 .wrangler
 wrangler.toml
+
+# local db exports — may contain real email data
+*-data.sql
+*-backup.sql
